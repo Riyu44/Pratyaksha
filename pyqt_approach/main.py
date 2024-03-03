@@ -1,9 +1,7 @@
 # importing the required module  
-import sys  
-  
-# importing the necessary classes for the project  
-from PyQt5.QtCore import Qt, QSize  
-from PyQt5.QtWidgets import QApplication, QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, qApp, QFileDialog, QToolBar  
+import sys
+from PyQt5.QtCore import Qt, QSize, QRect
+from PyQt5.QtWidgets import QApplication, QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, qApp, QFileDialog, QToolBar
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QKeySequence
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 
@@ -110,7 +108,7 @@ class QImageViewer(QMainWindow):
         # adding the separator  
         self.viewmenu.addSeparator()  
         self.viewtoolbar.addSeparator()  
-        # calling the user-defined makeAction() method to create the action to set the image to window size  
+        # calling the user-defined makeAction() method to create the action to fit the image to the window  
         self.fitToWindow_opt = self.makeAction(self, './utils/fitToWindow.ico', 'Fit To Window', 'Fit To Window', self.fit_to_window)
         # using the setShortcut() method to set a shortcut to execute the 'Fit To Window' command
         self.fitToWindow_opt.setShortcut(QKeySequence('Ctrl+F'))
@@ -119,7 +117,10 @@ class QImageViewer(QMainWindow):
         # using the addActions() method to add all the created actions to the 'View' menu and toolbar
         self.viewmenu.addActions([self.fitToWindow_opt])
         self.viewtoolbar.addActions([self.fitToWindow_opt])
-    
+
+        # Dictionary to store loaded images for caching
+        self.image_cache = {}
+
     # defining the required methods of the class
     # defining the method to open the image file
     def openImage(self):
@@ -135,35 +136,41 @@ class QImageViewer(QMainWindow):
             )  
         # if the file name is not an empty string  
         if file_name:  
-            # creating an object of the QImage class to display the image  
-            image = QImage(file_name)  
-            # if the image is null or empty  
-            if image.isNull():  
-                # displaying a message box with the error message  
-                QMessageBox.information(self, 'Image Viewer', 'Cannot load %s.' % file_name)  
-                # returning the control to the calling function  
-                return  
-            # setting the image to the label using the setPixmap() method  
-            self.image_label.setPixmap(QPixmap.fromImage(image))  
-        # setting the scale factor to 1.0  
-        self.scale_factor = 1.0  
-  
-        # enabling the visibility of the scroll area  
-        self.scroll_area.setVisible(True)  
-        # enabling the "Print" action  
-        self.print_opt.setEnabled(True)  
-        # calling the fit_to_window() method  
-        self.fit_to_window()  
-        # enabling the "Fit To Window" action  
-        self.fitToWindow_opt.setEnabled(True)  
-        # calling the update_actions() method  
-        self.update_actions()  
-  
-        # if the "Fit To Window" action is not checked  
-        if not self.fitToWindow_opt.isChecked():  
-            # calling the adjustSize() method to adjust the size of the image  
-            self.image_label.adjustSize() 
-    # defining the method to print the image
+            pixmap = self.loadImage(file_name)
+            if pixmap:
+                self.image_label.setPixmap(pixmap)
+                # enabling the visibility of the scroll area  
+                self.scroll_area.setVisible(True)  
+                # enabling the "Print" action  
+                self.print_opt.setEnabled(True)  
+                # calling the fit_to_window() method  
+                self.fit_to_window()  
+                # enabling the "Fit To Window" action  
+                self.fitToWindow_opt.setEnabled(True)  
+                # calling the update_actions() method  
+                self.update_actions()  
+
+                # if the "Fit To Window" action is not checked  
+                if not self.fitToWindow_opt.isChecked():  
+                    # calling the adjustSize() method to adjust the size of the image  
+                    self.image_label.adjustSize() 
+
+    def loadImage(self, file_name):
+        # Load image from cache if already loaded
+        if file_name in self.image_cache:
+            return self.image_cache[file_name]
+
+        # Load image and cache it
+        image = QImage(file_name)
+        if not image.isNull():
+            pixmap = QPixmap.fromImage(image)
+            self.image_cache[file_name] = pixmap
+            return pixmap
+        else:
+            QMessageBox.information(self, 'Image Viewer', 'Cannot load %s.' % file_name)  
+            return None
+
+    #defining the method to print the image
     def printImage(self):
         # creating an object of the QPrintDialog class to print the image  
         print_dialog = QPrintDialog(self.printerObj, self)  
@@ -182,20 +189,24 @@ class QImageViewer(QMainWindow):
             the_painter.setWindow(self.image_label.pixmap().rect())  
             # calling the drawPixmap() method  
             the_painter.drawPixmap(0, 0, self.image_label.pixmap())
+
     #defining the zoom in on the image
     def zoom_in(self):
         # calling the scale_image() method to scale the image  
         self.scale_image(1.25)
+
     #defining the zoom out on the image
     def zoom_out(self):
         # calling the scale_image() method to scale the image  
         self.scale_image(0.8)
+
     #defining the method to set the normal size of the image
     def normal_size(self):
-        #calling the aadjustSize() method to adjust the size of the image
+        #calling the adjustSize() method to adjust the size of the image
         self.image_label.adjustSize()
         #setting the scale factor to 1.0
         self.scale_factor = 1.0
+
     #defining the method to fit the image to the window
     def fit_to_window(self):
         #retriving the boolean value from the "Fit to window" action
@@ -207,14 +218,16 @@ class QImageViewer(QMainWindow):
             self.normal_size()
         # calling the user defined update_actions() method
         self.update_actions()
-    #defining the method to scale the image
+
+    #defining the method to scale the image  
     def update_actions(self):
-    # enabling the "Zoom In", "Zoom Out", and "Normal Size" actions, if the "Fir To Window" is unchecked
+        # enabling the "Zoom In", "Zoom Out", and "Normal Size" actions, if the "Fir To Window" is unchecked
         self.zoomIN_opt.setEnabled(not self.fitToWindow_opt.isChecked()) 
         self.zoomOUT_opt.setEnabled(not self.fitToWindow_opt.isChecked())  
         self.normalSize_opt.setEnabled(not self.fitToWindow_opt.isChecked())   
+
     # defining the method to scale the image  
-    def scale_image(self, sf):  
+    def scale_image(self, sf):
         # defining the scaling factor of the image  
         self.scale_factor *= sf  
         # using the resize() method to resize the image as per the scaling factor 
@@ -225,10 +238,12 @@ class QImageViewer(QMainWindow):
         # toggling the "Zoom In" and "Zoom Out" actions as per the scaling factor   
         self.zoomIN_opt.setEnabled(self.scale_factor < 3.0)  
         self.zoomOUT_opt.setEnabled(self.scale_factor > 0.333)
+
     #defining the method to adjust the scrollbar
     def adjust_scroll_bar(self, scroll_bar, sf):  
         # setting the value of the scrollbar to the minimum value  
         scroll_bar.setValue(int(sf * scroll_bar.value() + ((sf - 1) * scroll_bar.pageStep() / 2)))
+
     #defining the method to create the action for the menu options
     def makeAction(self, parent, icon, name, tip, method):  
         # creating an object of the QAction class to create the action for the menu options  
@@ -240,19 +255,18 @@ class QImageViewer(QMainWindow):
         # returning the action  
         return the_action
 
-
 # main function  
 if __name__ == '__main__':  
-  
+
     # creating an object of the QApplication class  
-  
+
     the_app = QApplication(sys.argv)  
-      
+
     # creating an object of the Application class  
     imageViewerApp = QImageViewer()  
-  
+
     # using the show() method to display the window  
     imageViewerApp.show()  
-  
+
     # using the exit() function of the sys module to close the application  
-    sys.exit(the_app.exec_())  
+    sys.exit(the_app.exec_())
