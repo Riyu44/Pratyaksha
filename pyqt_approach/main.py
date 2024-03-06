@@ -227,6 +227,7 @@ class QImageViewer(QMainWindow):
         self.normalSize_opt.setEnabled(not self.fitToWindow_opt.isChecked())   
 
     # defining the method to scale the image  
+    # defining the method to scale the image  
     def scale_image(self, sf):
         # defining the scaling factor of the image  
         self.scale_factor *= sf  
@@ -235,9 +236,10 @@ class QImageViewer(QMainWindow):
         # calling the user-defined adjust_scroll_bar() method to adjust the scrollbar as per the scaling factor  
         self.adjust_scroll_bar(self.scroll_area.horizontalScrollBar(), sf)
         self.adjust_scroll_bar(self.scroll_area.verticalScrollBar(), sf)  
-        # toggling the "Zoom In" and "Zoom Out" actions as per the scaling factor   
-        self.zoomIN_opt.setEnabled(self.scale_factor < 3.0)  
-        self.zoomOUT_opt.setEnabled(self.scale_factor > 0.333)
+        # toggling the "Zoom In" and "Zoom Out" actions without strict limits
+        self.zoomIN_opt.setEnabled(True)  # Always allow zooming in
+        self.zoomOUT_opt.setEnabled(True)  # Remove lower limit for zooming out
+
 
     #defining the method to adjust the scrollbar
     def adjust_scroll_bar(self, scroll_bar, sf):  
@@ -270,3 +272,20 @@ if __name__ == '__main__':
 
     # using the exit() function of the sys module to close the application  
     sys.exit(the_app.exec_())
+
+
+def fit_to_window(self):
+    fitToWindow = self.fitToWindow_opt.isChecked()
+    self.scroll_area.setWidgetResizable(fitToWindow)
+    if fitToWindow:
+        # Ensure the image scales within the scroll area while maintaining aspect ratio.
+        self.image_label.adjustSize()
+        imageSize = self.image_label.pixmap().size()
+        scrollAreaSize = self.scroll_area.size()
+        scaleFactor = min(scrollAreaSize.width() / imageSize.width(), 
+                          scrollAreaSize.height() / imageSize.height())
+        self.image_label.resize(scaleFactor * imageSize)
+    else:
+        # If not fitting to window, reset to normal size.
+        self.normal_size()
+    self.update_actions()
