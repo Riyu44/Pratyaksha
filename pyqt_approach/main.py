@@ -2,7 +2,7 @@
 import sys
 from PyQt5.QtCore import Qt, QSize, QRect
 from PyQt5.QtWidgets import QApplication, QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, qApp, QFileDialog, QToolBar
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QKeySequence
+from PyQt5.QtGui import QImage, QMouseEvent, QPixmap, QPalette, QPainter, QIcon, QKeySequence
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 
 class QImageViewer(QMainWindow):
@@ -39,6 +39,12 @@ class QImageViewer(QMainWindow):
         self.scroll_area.setVisible(False)
         # setting the central widget to the scroll area using the setCentralWidget() method 
         self.setCentralWidget(self.scroll_area)
+        # atrributes for dragging and hand tool functionality
+        self.dragging = False
+        self.lastMousePosition = None
+        # Make the image label accept mouse events
+        self.image_label.setMouseTracking(True)
+        self.setMouseTracking(True)
 
         #--------------------------------------  
         # Creating a File Menu  
@@ -245,6 +251,29 @@ class QImageViewer(QMainWindow):
     def adjust_scroll_bar(self, scroll_bar, sf):  
         # setting the value of the scrollbar to the minimum value  
         scroll_bar.setValue(int(sf * scroll_bar.value() + ((sf - 1) * scroll_bar.pageStep() / 2)))
+    
+    # override to handle mouse press event
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.dragging = True
+            self.lastMousePosition = event.pos()
+            self.setCursor(Qt.ClosedHandCursor) # change cursor to indicate dragging
+
+    # override to indicate mouse move event
+    def mouseMoveEvent(self, event):
+        if self.dragging:
+            # calcute the distance the mouse has moved
+            delta = event.pos() - self.lastMousePosition
+            self.lastMousePosition = event.pos()
+            # scroll the scroll area by the distance moved
+            self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - delta.x())
+            self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().value() - delta.y())
+    
+    # override to handle mouse release event
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.dragging = False
+            self.setCursor(Qt.ArrowCursor)
 
     #defining the method to create the action for the menu options
     def makeAction(self, parent, icon, name, tip, method):  
